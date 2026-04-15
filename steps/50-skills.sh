@@ -51,7 +51,7 @@ for (( i=0; i<extra_count; i++ )); do
 
   if [[ -z "$name" || "$name" == "null" ]]; then
     warn "skills.extra[$i]: missing name — skipping"
-    ((failed++))
+    failed=$((failed + 1))
     continue
   fi
 
@@ -66,10 +66,10 @@ for (( i=0; i<extra_count; i++ )); do
   # for audit trail; don't die on failure (step 90 gates).
   if sudo -u openclaw -H "$OPENCLAW_BIN" skills install "$target" \
        2>&1 | tee -a "$LOG" >/dev/null; then
-    ((installed++))
+    installed=$((installed + 1))
   else
     warn "  failed to install $target"
-    ((failed++))
+    failed=$((failed + 1))
   fi
 done
 

@@ -27,26 +27,27 @@ if sudo -u openclaw -H "$OPENCLAW_BIN" status 2>&1 | tee -a "$LOG"; then
   log "  ✓ status returned 0"
 else
   warn "  ✗ 'openclaw status' returned non-zero"
-  ((issues++))
+  issues=$((issues + 1))
 fi
 
 # ---- 2. Gateway HTTP probe -------------------------------------------------
-# Default openclaw gateway HTTP port is 19000 (confirmed via --dev docs:
-# "default gateway port 19001" in dev profile ⇒ prod is 19000). Probe the
-# loopback address so we don't need auth tokens.
-log "smoke: gateway HTTP probe on localhost:19000"
+# OpenClaw 2026.4.x binds the gateway/control UI on 127.0.0.1:18789 (per
+# `openclaw status` Dashboard line). Probe the loopback so we don't need
+# auth tokens.
+GATEWAY_PORT=18789
+log "smoke: gateway HTTP probe on localhost:${GATEWAY_PORT}"
 if code="$(curl -fsS -o /dev/null -w '%{http_code}' \
-            --max-time 5 http://127.0.0.1:19000/healthz 2>&1)"; then
+            --max-time 5 http://127.0.0.1:${GATEWAY_PORT}/healthz 2>&1)"; then
   log "  ✓ GET /healthz → $code"
 else
   # /healthz might not exist — try root path as fallback.
   code="$(curl -sS -o /dev/null -w '%{http_code}' \
-            --max-time 5 http://127.0.0.1:19000/ 2>&1 || echo '000')"
+            --max-time 5 http://127.0.0.1:${GATEWAY_PORT}/ 2>&1 || echo '000')"
   if [[ "$code" =~ ^[23] ]]; then
     log "  ✓ GET / → $code (no /healthz; root responded)"
   else
     warn "  ✗ gateway HTTP probe failed (code=$code)"
-    ((issues++))
+    issues=$((issues + 1))
   fi
 fi
 
@@ -66,11 +67,11 @@ if systemctl start openclaw-sync.service; then
   else
     warn "  ✗ openclaw-sync result: $result"
     journalctl -u openclaw-sync.service -n 30 --no-pager | tee -a "$LOG"
-    ((issues++))
+    issues=$((issues + 1))
   fi
 else
   warn "  ✗ failed to start openclaw-sync.service"
-  ((issues++))
+  issues=$((issues + 1))
 fi
 
 # Verify bucket has our workspace prefix after sync.
@@ -79,7 +80,7 @@ if sudo -u openclaw -H rclone lsd "oci:${BUCKET}/workspace" >>"$LOG" 2>&1; then
   log "  ✓ oci:${BUCKET}/workspace/ reachable"
 else
   warn "  ✗ oci:${BUCKET}/workspace/ not listable — sync may have failed silently"
-  ((issues++))
+  issues=$((issues + 1))
 fi
 
 # ---- 4. Record completion --------------------------------------------------
