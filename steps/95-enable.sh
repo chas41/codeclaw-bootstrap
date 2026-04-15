@@ -41,7 +41,24 @@ if [[ "$state" != "active" ]]; then
   journalctl -u openclaw-gateway.service -n 100 --no-pager 2>&1 | tee -a "$LOG"
   die "gateway did not reach active state — refusing to enable timers"
 fi
-log "openclaw-gateway is active"
+
+# Crash-loop detection: a gateway that exits status=78 (EX_CONFIG)
+# bounces every ~5s under systemd's default Restart=always. is-active
+# returns "active" during the brief activating window, so a single
+# poll can be fooled. Wait 15s and re-check that:
+#   - the service is STILL active
+#   - the restart counter hasn't moved (NRestarts is stable)
+log "  confirming gateway is stable (15s settle)"
+restart_before="$(systemctl show openclaw-gateway.service -p NRestarts --value)"
+sleep 15
+state_after="$(systemctl is-active openclaw-gateway.service 2>&1 || true)"
+restart_after="$(systemctl show openclaw-gateway.service -p NRestarts --value)"
+if [[ "$state_after" != "active" ]] || [[ "$restart_after" != "$restart_before" ]]; then
+  warn "gateway is unstable — state=$state_after restarts=$restart_before→$restart_after"
+  journalctl -u openclaw-gateway.service -n 60 --no-pager 2>&1 | tee -a "$LOG"
+  die "gateway crash-looping — refusing to enable timers"
+fi
+log "openclaw-gateway is active and stable (NRestarts=$restart_after)"
 
 # ---- 2. Live-sync timer ---------------------------------------------------
 log "enabling openclaw-sync.timer"

@@ -74,6 +74,7 @@ STEPS=(
   30-openclaw
   31-acpx
   40-creds
+  45-openclaw-config
   50-skills
   60-systemd
   70-hooks
