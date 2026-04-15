@@ -36,23 +36,23 @@ echo "$desired" > "$VERSION_FILE"
 log "target version: $desired"
 
 # ---- Check current install -------------------------------------------------
-current=""
+# Substring match on --version output (same rationale as step 30-openclaw:
+# build-sha suffix breaks naive field extraction).
+current_output=""
 if command -v acpx >/dev/null 2>&1; then
-  current="$(acpx --version 2>/dev/null | head -1 | awk '{print $NF}')"
+  current_output="$(acpx --version 2>/dev/null | head -1)"
 fi
 
-if [[ "$current" == "$desired" ]]; then
-  log "acpx already at $desired — no install needed"
-  exit 0
-fi
-
-if [[ -n "$current" ]]; then
-  log "upgrading acpx $current → $desired"
+if [[ "$current_output" == *"$desired"* ]]; then
+  log "acpx already at $desired — skipping npm install"
 else
-  log "installing acpx $desired (first install)"
+  if [[ -n "$current_output" ]]; then
+    log "upgrading acpx ($current_output) → $desired"
+  else
+    log "installing acpx $desired (first install)"
+  fi
+  npm install -g "acpx@${desired}"
 fi
-
-npm install -g "acpx@${desired}"
 
 # ---- Resolve binary path (v1 lesson, same as openclaw) --------------------
 # npm on Ubuntu installs to /usr/bin, NOT /usr/local/bin. Systemd units
@@ -64,9 +64,9 @@ echo "$ACPX_BIN" > "$STATE_DIR/acpx-bin"
 log "acpx binary: $ACPX_BIN"
 
 # ---- Verify version ---------------------------------------------------------
-installed="$(acpx --version | head -1 | awk '{print $NF}')"
-[[ "$installed" == "$desired" ]] \
-  || die "version mismatch after install: wanted $desired, got $installed"
+installed_output="$(acpx --version | head -1)"
+[[ "$installed_output" == *"$desired"* ]] \
+  || die "version mismatch after install: wanted $desired, got '$installed_output'"
 
 # ---- Doctor: diagnose only, DO NOT --fix ----------------------------------
 # Same posture as step 30 — surface issues to the log but don't gate here.

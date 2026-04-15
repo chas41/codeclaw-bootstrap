@@ -41,23 +41,27 @@ echo "$desired" > "$VERSION_FILE"
 log "target version: $desired"
 
 # ---- Check current install -------------------------------------------------
-current=""
+# `openclaw --version` prints something like:
+#   openclaw 2026.4.14 (323493f)
+# We match the desired version as a substring rather than trying to pick a
+# specific field — the build-sha suffix and field ordering have changed
+# across releases and the only invariant we care about is "the expected
+# version number appears in the output".
+current_output=""
 if command -v openclaw >/dev/null 2>&1; then
-  current="$(openclaw --version 2>/dev/null | head -1 | awk '{print $NF}')"
+  current_output="$(openclaw --version 2>/dev/null | head -1)"
 fi
 
-if [[ "$current" == "$desired" ]]; then
-  log "openclaw already at $desired — no install needed"
-  exit 0
-fi
-
-if [[ -n "$current" ]]; then
-  log "upgrading openclaw $current → $desired"
+if [[ "$current_output" == *"$desired"* ]]; then
+  log "openclaw already at $desired — skipping npm install"
 else
-  log "installing openclaw $desired (first install)"
+  if [[ -n "$current_output" ]]; then
+    log "upgrading openclaw ($current_output) → $desired"
+  else
+    log "installing openclaw $desired (first install)"
+  fi
+  npm install -g "openclaw@${desired}"
 fi
-
-npm install -g "openclaw@${desired}"
 
 # ---- Resolve binary path (v1 lesson) --------------------------------------
 # npm on Ubuntu installs to /usr/bin, NOT /usr/local/bin. Systemd units
@@ -69,9 +73,9 @@ echo "$OPENCLAW_BIN" > "$STATE_DIR/openclaw-bin"
 log "openclaw binary: $OPENCLAW_BIN"
 
 # ---- Verify version ---------------------------------------------------------
-installed="$(openclaw --version | head -1 | awk '{print $NF}')"
-[[ "$installed" == "$desired" ]] \
-  || die "version mismatch after install: wanted $desired, got $installed"
+installed_output="$(openclaw --version | head -1)"
+[[ "$installed_output" == *"$desired"* ]] \
+  || die "version mismatch after install: wanted $desired, got '$installed_output'"
 
 # ---- Doctor: diagnose only, DO NOT --fix ----------------------------------
 # Run doctor without --fix to surface any issues to the log. Failures here
