@@ -23,7 +23,7 @@
 
 source "$CODECLAW_ROOT/lib/common.sh"
 
-MARKER="20-workspace.v1"
+MARKER="20-workspace.v2"  # v2: write sudoers unconditionally (cloud-init creates user)
 if already_done "$MARKER"; then
   log "workspace already laid out"
   exit 0
@@ -33,15 +33,21 @@ WORKSPACE=$(cfg_required .workspace_root)
 [[ "$WORKSPACE" == /data/* ]] || die "workspace_root must be under /data"
 
 # ---- openclaw user ---------------------------------------------------------
+# Cloud-init may have already created the user via its `users:` block, so
+# create-if-missing. Sudoers file is written unconditionally — it's
+# idempotent (same content) and the cloud-init path doesn't write our
+# canonical filename (it writes /etc/sudoers.d/90-cloud-init-users instead).
 if ! id -u openclaw >/dev/null 2>&1; then
   log "creating openclaw user"
   useradd --create-home --shell /bin/bash openclaw
-  # Passwordless sudo — needed for systemctl restart in operator runbook.
-  echo 'openclaw ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/openclaw
-  chmod 440 /etc/sudoers.d/openclaw
 else
   log "openclaw user already exists"
 fi
+
+# Passwordless sudo — needed for systemctl restart in operator runbook.
+# Step 90 checks for /etc/sudoers.d/openclaw specifically, so always (re)write.
+echo 'openclaw ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/openclaw
+chmod 440 /etc/sudoers.d/openclaw
 
 # SSH authorized_keys: cloud-init put the instance's SSH key on the default
 # `ubuntu` user. Copy to openclaw so operators can reach this account over
