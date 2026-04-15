@@ -140,6 +140,11 @@ log "wrote /etc/systemd/system/openclaw-snapshot.{service,timer}"
 cat > /etc/logrotate.d/openclaw <<'LREOF'
 # Rendered by codeclaw-bootstrap 70-hooks.
 /var/log/codeclaw-bootstrap.log {
+    # /var/log is drwxrwxr-x root:syslog on Ubuntu. logrotate considers that
+    # "insecure" (group-writable by a non-root group) and skips unless told
+    # explicitly which user to rotate as. Running as root is correct here —
+    # the log is owned by root and lives under system /var/log.
+    su root root
     weekly
     rotate 8
     missingok

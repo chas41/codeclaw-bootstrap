@@ -73,7 +73,8 @@ installed_output="$(acpx --version | head -1)"
 # Step 90 is the real gate.
 if "$ACPX_BIN" doctor --help >/dev/null 2>&1; then
   log "running 'acpx doctor' (diagnostic only, no --fix)"
-  sudo -u openclaw -H "$ACPX_BIN" doctor 2>&1 | tee -a "$LOG" || true
+  # stdin from /dev/null — see 30-openclaw.sh for rationale.
+  sudo -u openclaw -H "$ACPX_BIN" doctor </dev/null 2>&1 | tee -a "$LOG" || true
 else
   log "acpx doctor subcommand not available on this version — skipping"
 fi

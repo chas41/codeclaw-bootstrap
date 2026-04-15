@@ -133,7 +133,8 @@ done
 
 # ---- 8. openclaw doctor (authoritative) -----------------------------------
 log "check: openclaw doctor (authoritative — no --fix)"
-if sudo -u openclaw -H "$OPENCLAW_BIN" doctor 2>&1 | tee -a "$LOG"; then
+# stdin from /dev/null so interactive prompts (gateway token, etc.) auto-decline.
+if sudo -u openclaw -H "$OPENCLAW_BIN" doctor </dev/null 2>&1 | tee -a "$LOG"; then
   ok "openclaw doctor reports clean"
 else
   fail "openclaw doctor reports issues — see log above"

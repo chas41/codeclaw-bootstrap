@@ -80,7 +80,11 @@ installed_output="$(openclaw --version | head -1)"
 # ---- Doctor: diagnose only, DO NOT --fix ----------------------------------
 # Run doctor without --fix to surface any issues to the log. Failures here
 # don't block this step; step 90 is the real gate.
+#
+# stdin redirected from /dev/null: `openclaw doctor` may emit interactive
+# prompts (e.g. "Generate and configure a gateway token now?") — with no
+# TTY it treats them as "No" / declined and continues.
 log "running 'openclaw doctor' (diagnostic only, no --fix)"
-sudo -u openclaw -H "$OPENCLAW_BIN" doctor 2>&1 | tee -a "$LOG" || true
+sudo -u openclaw -H "$OPENCLAW_BIN" doctor </dev/null 2>&1 | tee -a "$LOG" || true
 
 log "openclaw install OK (version=$desired, bin=$OPENCLAW_BIN)"
