@@ -10,9 +10,8 @@
 #
 # What it does:
 #   1. `openclaw config set gateway.mode local` — bind loopback, no remote auth.
-#   2. (Optional, if the CLI supports it) enable gateway auth so the security
-#      audit's "auto-generate gateway.auth.token when browser control is
-#      enabled" hint kicks in on next start.
+#   2. (Optional) enable gateway.auth.enabled for defense-in-depth.
+#   3. Generate and set gateway.auth.token if not already present.
 #
 # Why local:
 #   We're Tailscale-only (no public IP). Operators reach the dashboard via
@@ -53,18 +52,32 @@ log "configuring openclaw for local gateway operation"
 # 1. gateway.mode — required for the gateway to start at all.
 oc_ensure gateway.mode local
 
-# 2. gateway.auth.enabled — once enabled and the gateway restarts, OpenClaw's
-#    own security audit hint says it will auto-generate gateway.auth.token.
-#    We don't try to set the token directly; let openclaw handle that.
-#
-#    The CLI may or may not accept this exact key on this version. Don't die
-#    if the key is rejected — it's defense-in-depth, and step 95 still gates
-#    on actual "service stays running" rather than perfect security posture.
+# 2. gateway.auth.enabled — defense-in-depth for the loopback gateway.
+#    The CLI may or may not accept this key on every version. Don't die
+#    if rejected — step 3 below is what actually secures the gateway.
 if sudo -u openclaw -H "$OPENCLAW_BIN" config set gateway.auth.enabled true \
      >/dev/null 2>&1; then
-  log "  gateway.auth.enabled=true (token will auto-generate on next start)"
+  log "  gateway.auth.enabled=true"
 else
   log "  gateway.auth.enabled not accepted by this CLI version — skipping"
+fi
+
+# 3. gateway.auth.token — generate explicitly if not already set.
+#    Previous versions relied on openclaw auto-generating this on restart,
+#    but that left a window where the gateway ran unauthenticated (security
+#    audit reported CRITICAL "Gateway auth missing on loopback"). Generate
+#    deterministically so every fresh deploy is secure from first start.
+existing_token="$(oc_get gateway.auth.token)"
+if [[ -n "$existing_token" ]]; then
+  log "  gateway.auth.token already set"
+else
+  new_token="$(openssl rand -hex 32)"
+  if sudo -u openclaw -H "$OPENCLAW_BIN" config set gateway.auth.token "$new_token" \
+       >/dev/null 2>&1; then
+    log "  gateway.auth.token generated and set"
+  else
+    log "  WARN: could not set gateway.auth.token — verify manually after deploy"
+  fi
 fi
 
 log "openclaw config OK"

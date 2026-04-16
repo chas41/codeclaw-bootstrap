@@ -19,7 +19,7 @@
 set -euo pipefail
 
 CONFIG="${CODECLAW_CONFIG:-/etc/codeclaw/config.yaml}"
-REPO_SHA="${CODECLAW_BOOTSTRAP_SHA:-unknown}"
+REPO_SHA="${CODECLAW_BOOTSTRAP_SHA:-}"
 ONLY=""
 SKIP=""
 RESET=0
@@ -37,11 +37,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Default REPO_SHA to the git HEAD of this checkout if not provided.
+if [[ -z "$REPO_SHA" ]]; then
+  REPO_SHA="$(git -C "$HERE" rev-parse HEAD 2>/dev/null || echo "unknown")"
+fi
+
 export CONFIG REPO_SHA
 export LOG=/var/log/codeclaw-bootstrap.log
 export STATE_DIR=/var/lib/codeclaw-bootstrap
-
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export CODECLAW_ROOT="$HERE"
 
 # shellcheck source=lib/common.sh
